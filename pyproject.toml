@@ -1,0 +1,10 @@
+[project]
+name = "qat-fl-tmlcn-2025"
+version = "0.1.0"
+description = "Rebuild scaffold for Communication Efficient Federated Learning With Quantization-Aware Training Design"
+requires-python = ">=3.10"
+dependencies = ["torch", "numpy", "pyyaml", "pandas", "scikit-learn"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

@@ -1,0 +1,13 @@
+__pycache__/
+.pytest_cache/
+.venv/
+*.pyc
+*.pt
+*.pth
+reports/
+checkpoints/
+data/raw/
+data/processed/
+data/03_experiments_npy/
+*.npy
+tests/tempCodeRunnerFile.py
