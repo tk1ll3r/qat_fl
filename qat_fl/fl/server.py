@@ -7,6 +7,7 @@ import torch.nn as nn
 
 from qat_fl.fl.fedavg import aggregate_deltas
 from qat_fl.quantization.uniform import QuantizedTensor, dequantize_state_delta
+from qat_fl.utils.metrics import ClassificationMetrics, evaluate_classification
 
 
 class FLServer:
@@ -33,3 +34,5 @@ class FLServer:
         new_state = aggregate_deltas(reference_state, deltas, sizes, mode=self.aggregation)
         self.model.load_state_dict(new_state)
 
+    def evaluate_global_model(self, loader, device: torch.device, num_classes: int) -> ClassificationMetrics:
+        return evaluate_classification(self.model, loader, device, num_classes)

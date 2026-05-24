@@ -6,7 +6,7 @@ from pathlib import Path
 import torch
 import yaml
 
-from qat_fl.data.ciciot_npy_dataloader import ciciot_npy_client_loaders, load_metadata
+from qat_fl.data.ciciot_npy_dataloader import ciciot_npy_client_loaders, ciciot_npy_test_loader, load_metadata
 from qat_fl.data.partition import synthetic_ids_client_loaders, synthetic_image_client_loaders
 from qat_fl.fl.server import FLServer
 from qat_fl.fl.trainer import FederatedTrainer
@@ -26,6 +26,7 @@ def main() -> None:
     set_seed(int(config["seed"]))
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     dataset = config.get("dataset", "synthetic_image")
+    test_loader = None
 
     if dataset == "synthetic_ids":
         loader_kwargs = {
@@ -49,6 +50,10 @@ def main() -> None:
             batch_size=int(config["batch_size"]),
             seed=int(config["seed"]),
         )
+        test_loader = ciciot_npy_test_loader(
+            data_dir=config["data_dir"],
+            batch_size=int(config.get("eval_batch_size", config["batch_size"])),
+        )
     elif dataset == "synthetic_image":
         loader_kwargs = {
             "num_clients": int(config["num_clients"]),
@@ -69,11 +74,19 @@ def main() -> None:
     for round_id in range(1, int(config["rounds"]) + 1):
         result = trainer.run_round(round_id, previous_loss)
         previous_loss = result.train_loss
-        print(
-            f"round={result.round} loss={result.train_loss:.4f} bits={result.num_bits} "
+        log = (
+            f"round={result.round} train_loss={result.train_loss:.4f} bits={result.num_bits} "
             f"comm_bits={result.communication_bits} rel_qerr={result.relative_quantization_error:.4f} "
             f"clients={result.selected_clients}"
         )
+        if test_loader is not None:
+            metrics = server.evaluate_global_model(test_loader, device, int(config["num_classes"]))
+            log += (
+                f" server_test_loss={metrics.loss:.4f} server_acc={metrics.accuracy:.4f} "
+                f"server_macro_p={metrics.macro_precision:.4f} server_macro_r={metrics.macro_recall:.4f} "
+                f"server_macro_f1={metrics.macro_f1:.4f} server_weighted_f1={metrics.weighted_f1:.4f}"
+            )
+        print(log)
 
 
 if __name__ == "__main__":

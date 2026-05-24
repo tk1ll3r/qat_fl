@@ -19,3 +19,8 @@ def test_qat_client_sends_quantized_delta_payload():
     assert update.metrics is not None
     assert update.metrics.communicated_bits > 0
 
+
+
+
+
+

@@ -6,7 +6,7 @@ aggregation: uniform
 strategy: qat_fl
 model: dcnn_bilstm
 dataset: ciciot_npy
-data_dir: qat_fl/working/03_experiments_npy
+data_dir: working/03_experiments_npy
 batch_size: 512
 optimizer: adam
 lr: 0.0001

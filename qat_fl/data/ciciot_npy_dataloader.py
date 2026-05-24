@@ -50,3 +50,12 @@ def ciciot_npy_client_loaders(
             )
         )
     return loaders
+
+def ciciot_npy_test_loader(
+    *,
+    data_dir: str | Path,
+    batch_size: int,
+) -> DataLoader:
+    root = Path(data_dir)
+    dataset = NpyClassificationDataset(root / "global_test_X.npy", root / "global_test_y.npy")
+    return DataLoader(dataset, batch_size=batch_size, shuffle=False)
