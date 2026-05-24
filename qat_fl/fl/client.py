@@ -36,6 +36,16 @@ def _run_epochs(model: nn.Module, loader, optimizer, criterion, device: torch.de
     return total_loss / max(total_seen, 1), total_seen
 
 
+def _loader_num_samples(loader, fallback: int) -> int:
+    dataset = getattr(loader, "dataset", None)
+    if dataset is None:
+        return fallback
+    try:
+        return int(len(dataset))
+    except TypeError:
+        return fallback
+
+
 def _make_optimizer(model: nn.Module, name: str, lr: float) -> torch.optim.Optimizer:
     if name == "sgd":
         return torch.optim.SGD(model.parameters(), lr=lr)
@@ -57,7 +67,6 @@ class FLClient:
         lr: float,
         tau_epochs: int,
         qat_epochs: int,
-        strategy: str,
         num_bits: int,
         optimizer_name: str = "sgd",
     ) -> ClientUpdate:
@@ -66,23 +75,17 @@ class FLClient:
         criterion = nn.CrossEntropyLoss()
         optimizer = _make_optimizer(model, optimizer_name, lr)
 
-        if strategy == "qat_fl":
-            _run_epochs(model, self.loader, optimizer, criterion, self.device, tau_epochs)
-            prepare_weight_qat(model, num_bits)
-            set_fake_quant(model, True)
-            avg_loss, seen = _run_epochs(model, self.loader, optimizer, criterion, self.device, qat_epochs)
-            set_fake_quant(model, False)
-        elif strategy == "ptq_fl":
-            avg_loss, seen = _run_epochs(model, self.loader, optimizer, criterion, self.device, tau_epochs + qat_epochs)
-        elif strategy == "fedavg_fp32":
-            avg_loss, seen = _run_epochs(model, self.loader, optimizer, criterion, self.device, tau_epochs + qat_epochs)
-        else:
-            raise ValueError("strategy must be fedavg_fp32, ptq_fl, or qat_fl")
+        tau_loss, tau_seen = _run_epochs(model, self.loader, optimizer, criterion, self.device, tau_epochs)
+        prepare_weight_qat(model, num_bits)
+        set_fake_quant(model, True)
+        optimizer = _make_optimizer(model, optimizer_name, lr)
+        qat_loss, qat_seen = _run_epochs(model, self.loader, optimizer, criterion, self.device, qat_epochs)
+        set_fake_quant(model, False)
+        seen = tau_seen + qat_seen
+        avg_loss = ((tau_loss * tau_seen) + (qat_loss * qat_seen)) / max(seen, 1)
+        num_samples = _loader_num_samples(self.loader, seen)
 
         local_state = {k: v.detach().cpu() for k, v in model.state_dict().items()}
-        if strategy == "fedavg_fp32":
-            return ClientUpdate(full_precision_state_delta(local_state, global_state), seen, avg_loss, None)
-
         payload = quantize_state_delta(local_state, global_state, num_bits)
         restored = {}
         for key, value in payload.items():
@@ -94,4 +97,4 @@ class FLClient:
                 restored[key] = value
         original_delta = full_precision_state_delta(local_state, global_state)
         metrics = delta_error_metrics(original_delta, restored, num_bits)
-        return ClientUpdate(payload, seen, avg_loss, metrics)
+        return ClientUpdate(payload, num_samples, avg_loss, metrics)

@@ -6,7 +6,6 @@ import torch
 
 from qat_fl.fl.client import FLClient
 from qat_fl.fl.server import FLServer
-from qat_fl.quantization.adaptive_bits import AdaptiveBitScheduler
 
 
 @dataclass
@@ -27,15 +26,9 @@ class FederatedTrainer:
         self.device = device
         self.config = config
         self.cumulative_bits = 0
-        self.bit_scheduler = None
-        if config.get("adaptive_bits", False):
-            self.bit_scheduler = AdaptiveBitScheduler(config["initial_bits"], config["max_bits"])
 
-    def run_round(self, round_id: int, previous_loss: float | None = None) -> RoundResult:
+    def run_round(self, round_id: int) -> RoundResult:
         bits = int(self.config["num_bits"])
-        if self.bit_scheduler is not None and previous_loss is not None:
-            bits = self.bit_scheduler.update(previous_loss)
-
         selected = self.server.select_clients(self.config["num_clients"], self.config["clients_per_round"])
         updates = [
             self.clients[cid].train_update(
@@ -43,7 +36,6 @@ class FederatedTrainer:
                 lr=float(self.config["lr"]),
                 tau_epochs=int(self.config["tau_epochs"]),
                 qat_epochs=int(self.config["qat_epochs"]),
-                strategy=str(self.config["strategy"]),
                 num_bits=bits,
                 optimizer_name=str(self.config.get("optimizer", "sgd")),
             )

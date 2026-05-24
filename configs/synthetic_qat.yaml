@@ -2,8 +2,6 @@ seed: 42
 rounds: 3
 num_clients: 10
 clients_per_round: 4
-aggregation: uniform
-strategy: qat_fl
 model: dcnn_bilstm
 dataset: synthetic_ids
 input_features: 76
@@ -15,6 +13,3 @@ lr: 0.0001
 tau_epochs: 1
 qat_epochs: 1
 num_bits: 4
-adaptive_bits: false
-initial_bits: 2
-max_bits: 8
